@@ -1,180 +1,172 @@
 <!DOCTYPE html><html lang="en">
-  <head>
-      <meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <title>TV Logo Maker</title><!-- Tailwind CDN -->
-              <script src="https://cdn.tailwindcss.com"></script>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TV Logo Maker</title>  <!-- Tailwind CDN -->  <script src="https://cdn.tailwindcss.com"></script>  <!-- React -->  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>  <!-- Babel -->  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script></head>
+<body class="bg-neutral-100">
+<div id="root"></div><script type="text/babel">
+const { useState, useEffect, useRef } = React;
 
-              <!-- React -->
-              <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-              <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+const CANVAS_SIZE = {
+  square: { w: 128, h: 128 },
+  wide:   { w: Math.round(128 * 16 / 9), h: 128 }
+};
 
-              <!-- Babel -->
-              <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+function TvLogoMaker() {
+  const [theme, setTheme] = useState('material');
+  const [aspect, setAspect] = useState('1x1');
+  const [radius, setRadius] = useState(0);
+  const [padding, setPadding] = useState(16);
+  const [bg, setBg] = useState('#000000');
+  const [transparent, setTransparent] = useState(false);
+  const [effect, setEffect] = useState('flat');
+  const [filename, setFilename] = useState('tv-logo');
 
-                </head>
-                  <body class="bg-neutral-100">
-                      <div id="root"></div><script type="text/babel">
-                        const { useState, useEffect, useRef } = React;
+  const [logos, setLogos] = useState([]);
+  const [search, setSearch] = useState('');
+  const [country, setCountry] = useState('');
+  const [logoUrl, setLogoUrl] = useState(null);
 
-                          function TvLogoMaker() {
-                                const [theme, setTheme] = useState('material');
-                                    const [bg, setBg] = useState('#000000');
-                                        const [transparent, setTransparent] = useState(false);
-                                            const [aspect, setAspect] = useState('16x9');
-                                                const [padding, setPadding] = useState(20);
-                                                    const [radius, setRadius] = useState(24);
-                                                        const [logos, setLogos] = useState([]);
-                                                            const [logoUrl, setLogoUrl] = useState(null);
-                                                                const canvasRef = useRef(null);
+  const previewRef = useRef(null);
 
-                                                                    useEffect(() => {
-                                                                              fetch('https://api.github.com/repos/tv-logo/tv-logos/contents/logos')
-                                                                                      .then(res => res.json())
-                                                                                              .then(data => {
-                                                                                                          const svgs = data.filter(f => f.name.endsWith('.svg'));
-                                                                                                                    setLogos(svgs.slice(0, 60));
-                                                                                              });
-                                                                    }, []);
+  useEffect(() => {
+    fetch('https://api.github.com/repos/tv-logo/tv-logos/contents/logos')
+      .then(r => r.json())
+      .then(data => setLogos(data.filter(f => f.name.endsWith('.svg'))));
+  }, []);
 
-                                                                        const aspectClass = aspect === '16x9' ? 'aspect-video' : 'aspect-square';
+  const size = aspect === '1x1' ? CANVAS_SIZE.square : CANVAS_SIZE.wide;
 
-                                                                            function exportPng() {
-                                                                                      const node = canvasRef.current;
-                                                                                            const rect = node.getBoundingClientRect();
-                                                                                                  const canvas = document.createElement('canvas');
-                                                                                                        canvas.width = rect.width * 2;
-                                                                                                              canvas.height = rect.height * 2;
-                                                                                                                    const ctx = canvas.getContext('2d');
+  function exportPNG() {
+    if (!logoUrl) return;
 
-                                                                                                                          if (!transparent) {
-                                                                                                                                    ctx.fillStyle = bg;
-                                                                                                                                            ctx.fillRect(0, 0, canvas.width, canvas.height);
-                                                                                                                          }
+    const canvas = document.createElement('canvas');
+    canvas.width = size.w;
+    canvas.height = size.h;
+    const ctx = canvas.getContext('2d');
 
-                                                                                                                                const img = node.querySelector('img');
-                                                                                                                                      if (!img) return;
+    if (!transparent) {
+      ctx.fillStyle = bg;
+      drawRoundedRect(ctx, 0, 0, canvas.width, canvas.height, radius);
+      ctx.fill();
+    }
 
-                                                                                                                                            const scale = (rect.width - padding * 2) / img.naturalWidth;
-                                                                                                                                                  const w = img.naturalWidth * scale * 2;
-                                                                                                                                                        const h = img.naturalHeight * scale * 2;
+    if (effect === 'shadow') {
+      ctx.shadowColor = 'rgba(0,0,0,0.4)';
+      ctx.shadowBlur = 12;
+    }
 
-                                                                                                                                                              ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const maxW = canvas.width - padding * 2;
+      const maxH = canvas.height - padding * 2;
+      const scale = Math.min(maxW / img.width, maxH / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
 
-                                                                                                                                                                    const link = document.createElement('a');
-                                                                                                                                                                          link.download = 'tv-logo.png';
-                                                                                                                                                                                link.href = canvas.toDataURL('image/png');
-                                                                                                                                                                                      link.click();
-                                                                            }
+      ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
 
-                                                                                return (
-                                                                                          <div className={`min-h-screen p-4 ${theme === 'material' ? 'bg-neutral-100 text-black' : 'bg-black text-white'}`}>
-                                                                                                  <div className="flex items-center justify-between mb-4">
-                                                                                                            <h1 className="text-xl font-semibold">TV Logo Maker</h1>
-                                                                                                                      <button
-                                                                                                                                  onClick={() => setTheme(theme === 'material' ? 'glass' : 'material')}
-                                                                                                                                              className="px-4 py-2 rounded-xl bg-blue-600 text-white"
-                                                                                                                                                        >
-                                                                                                                                                                    {theme === 'material' ? 'Liquid Glass' : 'Material 3'}
-                                                                                                                                                                              </button>
-                                                                                                                                                                                      </div>
+      const link = document.createElement('a');
+      link.download = `${filename}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    };
+    img.src = logoUrl;
+  }
 
-                                                                                                                                                                                              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                                                                                                                                                                                                        {/* Canvas */}
-                                                                                                                                                                                                                  <div className="lg:col-span-2 flex items-center justify-center">
-                                                                                                                                                                                                                              <div
-                                                                                                                                                                                                                                            ref={canvasRef}
-                                                                                                                                                                                                                                                          className={`w-full max-w-xl ${aspectClass} flex items-center justify-center shadow-xl`}
-                                                                                                                                                                                                                                                                        style={{
-                                                                                                                                                                                                                                                                                            backgroundColor: transparent ? 'transparent' : bg,
-                                                                                                                                                                                                                                                                                                            borderRadius: radius + 'px'
-                                                                                                                                                                                                                                                                        }}
-                                                                                                                                                                                                                                                                                    >
-                                                                                                                                                                                                                                                                                                  {logoUrl && (
-                                                                                                                                                                                                                                                                                                                    <img
-                                                                                                                                                                                                                                                                                                                                      src={logoUrl}
-                                                                                                                                                                                                                                                                                                                                                        style={{ padding: padding + 'px' }}
-                                                                                                                                                                                                                                                                                                                                                                          className="max-w-full max-h-full"
-                                                                                                                                                                                                                                                                                                                                                                                          />
-                                                                                                                                                                                                                                                                                                  )}
-                                                                                                                                                                                                                                                                                                              </div>
-                                                                                                                                                                                                                                                                                                                        </div>
+  function drawRoundedRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
 
-                                                                                                                                                                                                                                                                                                                                  {/* Controls */}
-                                                                                                                                                                                                                                                                                                                                            <div className={`p-5 ${theme === 'glass' ? 'backdrop-blur-xl bg-white/10' : 'bg-white'} rounded-2xl shadow space-y-4`}>
-                                                                                                                                                                                                                                                                                                                                                        <div>
-                                                                                                                                                                                                                                                                                                                                                                      <label className="block mb-1">Aspect Ratio</label>
-                                                                                                                                                                                                                                                                                                                                                                                    <select value={aspect} onChange={e => setAspect(e.target.value)} className="w-full p-2 rounded-lg text-black">
-                                                                                                                                                                                                                                                                                                                                                                                                    <option value="16x9">16:9</option>
-                                                                                                                                                                                                                                                                                                                                                                                                                    <option value="1x1">1:1</option>
-                                                                                                                                                                                                                                                                                                                                                                                                                                  </select>
-                                                                                                                                                                                                                                                                                                                                                                                                                                              </div>
+  const filtered = logos.filter(l =>
+    l.name.toLowerCase().includes(search.toLowerCase()) &&
+    (!country || l.name.toLowerCase().includes(country.toLowerCase()))
+  );
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                          <div>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                        <label className="block mb-1">Corner Radius ({radius}px)</label>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      <input type="range" min="0" max="200" value={radius} onChange={e => setRadius(e.target.value)} className="w-full" />
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  </div>
+  return (
+    <div className={`min-h-screen p-4 ${theme === 'material' ? 'bg-neutral-100' : 'bg-black text-white'}`}>
+      <header className="flex justify-between items-center mb-4">
+        <h1 className="text-lg font-semibold">TV Logo Maker</h1>
+        <button onClick={() => setTheme(theme === 'material' ? 'glass' : 'material')} className="px-3 py-1 bg-blue-600 text-white rounded-xl">
+          {theme === 'material' ? 'Liquid Glass' : 'Material'}
+        </button>
+      </header>
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              <div>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            <label className="block mb-1">Padding ({padding}px)</label>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          <input type="range" min="0" max="200" value={padding} onChange={e => setPadding(e.target.value)} className="w-full" />
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      </div>
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_360px] gap-4">
+        {/* Preview */}
+        <div className="flex items-center justify-center">
+          <div
+            ref={previewRef}
+            style={{
+              width: size.w * 2,
+              height: size.h * 2,
+              background: transparent ? 'transparent' : bg,
+              borderRadius: radius,
+              boxShadow: effect === 'glass' ? '0 8px 30px rgba(255,255,255,0.25)' : effect === 'shadow' ? '0 6px 20px rgba(0,0,0,0.4)' : 'none'
+            }}
+            className="flex items-center justify-center"
+          >
+            {logoUrl && <img src={logoUrl} style={{ maxWidth: `calc(100% - ${padding*2}px)`, maxHeight: `calc(100% - ${padding*2}px)` }} />}
+          </div>
+        </div>
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  <div className="flex items-center gap-2">
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                <input type="checkbox" checked={transparent} onChange={e => setTransparent(e.target.checked)} />
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              <span>Transparent background</span>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          </div>
+        {/* Controls */}
+        <aside className="bg-white rounded-2xl shadow p-4 space-y-3 text-black">
+          <label>Filename</label>
+          <input className="w-full p-2 rounded" value={filename} onChange={e => setFilename(e.target.value)} />
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      {!transparent && (
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      <div>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      <label className="block mb-1">Background</label>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      <input type="color" value={bg} onChange={e => setBg(e.target.value)} className="w-full h-10" />
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    </div>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      )}
+          <label>Aspect Ratio</label>
+          <select className="w-full p-2 rounded" value={aspect} onChange={e => setAspect(e.target.value)}>
+            <option value="1x1">1:1 (128×128)</option>
+            <option value="16x9">16:9 ({CANVAS_SIZE.wide.w}×128)</option>
+          </select>
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  <button onClick={exportPng} className="w-full mt-2 py-2 rounded-xl bg-green-600 text-white">
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Export PNG
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            </button>
+          <label>Corner Radius</label>
+          <input type="range" min="0" max="64" value={radius} onChange={e => setRadius(+e.target.value)} />
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        <h3 className="font-medium mt-4">TV Logos</h3>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    <div className="grid grid-cols-4 gap-2 max-h-40 overflow-auto">
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  {logos.map(l => (
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    <button key={l.name} onClick={() => setLogoUrl(l.download_url)} className="p-2 bg-neutral-100 rounded">
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      <img src={l.download_url} className="w-full h-10 object-contain" />
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      </button>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  ))}
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              </div>
+          <label>Padding</label>
+          <input type="range" min="0" max="48" value={padding} onChange={e => setPadding(+e.target.value)} />
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          <h3 className="font-medium mt-4">Custom Logo</h3>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      <input
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    type="url"
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  placeholder="Paste image URL"
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                className="w-full p-2 rounded-lg text-black"
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              onBlur={e => setLogoUrl(e.target.value)}
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          />
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      <input
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    type="file"
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  accept="image/*,image/svg+xml"
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                onChange={e => setLogoUrl(URL.createObjectURL(e.target.files[0]))}
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            />
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      </div>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              </div>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    </div>
-                                                                                );
-                          }
+          <label>Effect</label>
+          <select className="w-full p-2 rounded" value={effect} onChange={e => setEffect(e.target.value)}>
+            <option value="flat">Flat</option>
+            <option value="shadow">Drop shadow</option>
+            <option value="glass">Liquid glass</option>
+          </select>
 
-                            ReactDOM.createRoot(document.getElementById('root')).render(<TvLogoMaker />);
-                            </script>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={transparent} onChange={e => setTransparent(e.target.checked)} /> Transparent
+          </label>
 
-                              </body>
-                              </html>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  ))}
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      )}
-                                                                                                                                                                                                                                                                                                  )}
-                                                                                                                                                                                                                                                                        }}
-                                                                                )
-                                                                                                                          }
-                                                                            }
-                                                                                              })
-                                                                    })
-                          }
+          {!transparent && <input type="color" value={bg} onChange={e => setBg(e.target.value)} />}
+
+          <button onClick={exportPNG} className="w-full bg-green-600 text-white py-2 rounded-xl">Export PNG</button>
+
+          <hr />
+
+          <input placeholder="Search logos" className="w-full p-2 rounded" value={search} onChange={e => setSearch(e.target.value)} />
+          <input placeholder="Filter by country (eg uk, us)" className="w-full p-2 rounded" value={country} onChange={e => setCountry(e.target.value)} />
+
+          <div className="grid grid-cols-4 gap-2 max-h-40 overflow-auto">
+            {filtered.map(l => (
+              <button key={l.name} onClick={() => setLogoUrl(l.download_url)} className="p-1 bg-neutral-100 rounded">
+                <img src={l.download_url} className="h-8 mx-auto" />
+              </button>
+            ))}
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<TvLogoMaker />);
+</script></body>
+</html>
